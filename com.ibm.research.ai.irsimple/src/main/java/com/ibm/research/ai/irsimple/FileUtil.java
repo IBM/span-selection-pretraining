@@ -21,6 +21,17 @@ public class FileUtil {
       }
     }
     
+    public static Properties loadProperties(String resource) {
+        Properties props = new Properties();
+        InputStream stream = FileUtil.class.getClassLoader().getResourceAsStream(resource);
+        try {
+            props.load(stream);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("Unable to load resource" + resource);
+        }
+        return props;
+    }
+    
     private static final int BUFFER_SIZE = 2 << 16;
 
     private static InputStream getInputStream(File file) throws FileNotFoundException, IOException {

@@ -32,7 +32,7 @@ def train_on_file(hypers: HypersRC, batches, trainer: BertTrainer):
         if batch_count > batch_limit:
             break
         if hypers.n_gpu == 1:
-            batch = tuple(t.to(hypers.device) for t in batch)  # multi-gpu does scattering itself
+            batch = tuple(t.to(hypers.device) if isinstance(t, torch.Tensor) else t for t in batch)
         input_ids, input_mask, segment_ids, start_positions, end_positions, answer_mask, answer_types = batch
         loss = trainer.model(input_ids, segment_ids, input_mask, start_positions, end_positions, answer_mask, answer_types)
         trainer.step_loss(loss)

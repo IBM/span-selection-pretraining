@@ -20,6 +20,49 @@ public class AsyncWriter {
         public String getSSPTQuery() {
             return sentence.substring(0, sentence.indexOf('▁')) + " [BLANK] " + sentence.substring(sentence.lastIndexOf('▁')+1);
         }
+        public void expandAnswer(String passage) {
+            String ptext = Search.normalize(passage);
+            String qtext = " "+sentence.replaceAll("\\s+", " ")+" ";
+            int astart = qtext.indexOf('▁')+1;
+            int aend = qtext.lastIndexOf('▁');
+            while (true) {
+                // extend span to cover whitespace
+                while (astart > 1 && qtext.charAt(astart-1) == ' ')
+                    --astart;
+                while (aend < qtext.length()-1 && qtext.charAt(aend+1) == ' ')
+                    ++aend;
+                int prevStart = astart;
+                int prevEnd = aend;
+                
+                // try expanding from start
+                if (astart > 0) {
+                    int exstart = qtext.lastIndexOf(' ', astart-1);
+                    if (exstart != -1 && ptext.contains(Search.normalize(qtext.substring(exstart, aend)))) {
+                        astart = exstart;
+                    }
+                }
+                // try expanding from end
+                if (aend < qtext.length()-1) {
+                    int exend = qtext.indexOf(' ', aend+1);
+                    if (exend != -1 && ptext.contains(Search.normalize(qtext.substring(astart, exend)))) {
+                        aend = exend;
+                    }
+                }
+                // stop if no progress
+                if (prevStart == astart && prevEnd == aend) {
+                    break;
+                }
+            }
+            // contract whitespace
+            qtext = qtext.replace('▁', ' ');
+            while (astart < aend-1 && qtext.charAt(astart) == ' ')
+                ++astart;
+            while (astart < aend-1 && qtext.charAt(aend-1) == ' ')
+                --aend;
+            // rebuild the sentence
+            this.sentence = qtext.substring(0, astart) + '▁' + qtext.substring(astart, aend) + '▁' + qtext.substring(aend);
+            this.sentence = this.sentence.replaceAll("\\s+", " ").trim();
+        }
     }
     
     public static class SSPT {
@@ -173,10 +216,14 @@ public class AsyncWriter {
         File workingDir = new File(args[0]);
         String indexDir = args[1];
         
-        int topN = 20;
-        float minScore = 25;
-        float maxScore = 70;
-        float targetNoAnswerFraction = 0.3f;
+        Properties opts = FileUtil.loadProperties("ssptOptions.properties");
+        System.out.println(opts.toString());
+        int topN = Integer.parseInt(opts.getProperty("topN"));
+        float minScore = Float.parseFloat(opts.getProperty("minScore"));
+        float maxScore = Float.parseFloat(opts.getProperty("maxScore"));
+        float targetNoAnswerFraction = Float.parseFloat(opts.getProperty("targetNoAnswerFraction"));
+        int maxAnswerLength = Integer.parseInt(opts.getProperty("maxAnswerLength"));
+        boolean expandAnswer = Boolean.parseBoolean(opts.getProperty("expandAnswer"));
         
         Search search = new Search(indexDir, topN, minScore, maxScore, targetNoAnswerFraction);
         Writer writer = new Writer(workingDir);
@@ -195,13 +242,18 @@ public class AsyncWriter {
                 String answer = q.getAnswer();
                 String passage = search.query(query, q.docId, answer);
                 if (passage != null) {
-                    SSPT inst = new SSPT();
-                    inst.qid = UUID.randomUUID().toString();
-                    inst.question = q.getSSPTQuery();
-                    inst.passage = passage;
-                    inst.answers = new String[] {answer};
-                    String jsonLine = gson.toJson(inst);
-                    writer.write(jsonLine);
+                    if (expandAnswer)
+                        q.expandAnswer(passage);
+                    answer = q.getAnswer();
+                    if (answer.length() <= maxAnswerLength) {
+                        SSPT inst = new SSPT();
+                        inst.qid = UUID.randomUUID().toString();
+                        inst.question = q.getSSPTQuery();
+                        inst.passage = passage;
+                        inst.answers = new String[] {answer};
+                        String jsonLine = gson.toJson(inst);
+                        writer.write(jsonLine);
+                    }
                 }
             });
             qCount += 1;

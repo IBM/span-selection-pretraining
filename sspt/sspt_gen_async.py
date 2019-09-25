@@ -21,16 +21,15 @@ class Document:
         contents = contents.strip()
         d = Document(id, contents)
         doc = nlp(contents)
-        pos = []
         for t in doc:
             d.tokens.append((t.idx, t.idx+len(t)))
-            pos.append(t.tag_)
+            d.pos.append(t.tag_)
         for sent in doc.sents:
             d.sentences.append((d.tokens[sent.start][0], d.tokens[sent.end - 1][1]))
         for np in doc.noun_chunks:
             np_start = np.start
             # print(pos[np_start]+": "+np.text)
-            if pos[np_start] in ['DT', 'PRP$']:
+            if d.pos[np_start] in ['DT', 'PRP$']:
                 np_start += 1
             if np_start < np.end:
                 d.noun_chunks.append((d.tokens[np_start][0], d.tokens[np.end - 1][1]))
@@ -38,12 +37,13 @@ class Document:
             d.entities.append((d.tokens[ent.start][0], d.tokens[ent.end - 1][1]))
         return d
 
-    def __init__(self, id, contents, sentences=None, tokens=None, noun_chunks=None, entities=None):
+    def __init__(self, id, contents, sentences=None, tokens=None, pos=None, noun_chunks=None, entities=None):
         self.id = id
         self.contents = contents  # contents instead of text for Anserini compatibility
         # these are lists of [start,end) character offsets
         self.sentences = sentences if sentences else []
         self.tokens = tokens if tokens else []
+        self.pos = pos if pos else []
         self.noun_chunks = noun_chunks if noun_chunks else []
         self.entities = entities if entities else []
 
@@ -193,13 +193,18 @@ class SSPTInstanceGenerator:
 
         self.token_select_prob = 0.2
 
+    @staticmethod
+    def is_open_class(tag):
+        return tag.startswith('NN') or tag.startswith('VB') or tag.startswith('JJ')
+
     def get_possible_blanks(self, doc, sent):
         ents = [e for e in doc.entities if e[0] >= sent[0] and e[1] <= sent[1]]
         nps = [e for e in doc.noun_chunks if e[0] >= sent[0] and e[1] <= sent[1]]
         all_ents = ents + nps
         # also have a chance of selecting a token
         if len(all_ents) == 0 or random.random() < self.token_select_prob:
-            all_ents = all_ents + [e for e in doc.tokens if e[0] >= sent[0] and e[1] <= sent[1]]
+            all_ents = all_ents + [e for e, p in zip(doc.tokens, doc.pos)
+                                   if e[0] >= sent[0] and e[1] <= sent[1] and self.is_open_class(p)]
         # filter answer by length
         all_ents = [e for e in all_ents if self.min_answer_length <= e[1] - e[0] <= self.max_answer_length]
         return all_ents
