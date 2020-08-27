@@ -3,7 +3,10 @@ Code to create pre-training data for a span selection pre-training task inspired
 
 ## Installation
 * python setup.py
-* build irsimple jar
+* build irsimple.jar (or use pre-built com.ibm.research.ai.irsimple/irsimple.jar)
+  * cd com.ibm.research.ai.irsimple/
+  * mvn clean compile assembly:single
+  * (install maven if necessary from https://maven.apache.org/install.html)
 
 ## Data Generation
 * Download a [Wikipedia dump](https://dumps.wikimedia.org/) and [WikiExtractor](https://github.com/attardi/wikiextractor)
