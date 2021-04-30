@@ -1,6 +1,15 @@
 # span-selection-pretraining
 Code to create pre-training data for a span selection pre-training task inspired by reading comprehension and an effort to avoid encoding general knowledge in the transformer network itself.
 
+## Pre-trained Models
+Available through Hugging Face as:
+* michaelrglass/bert-base-uncased-sspt
+* michaelrglass/bert-large-uncased-sspt
+
+Load with: AutoConfig.from_pretrained ,  AutoTokenizer.from_pretrained , AutoModelForQuestionAnswering.from_pretrained.
+See [run_qa.py](https://github.com/huggingface/transformers/blob/master/examples/pytorch/question-answering/run_qa.py) for example code.
+
+
 ## Installation
 * python setup.py
 * build irsimple.jar (or use pre-built com.ibm.research.ai.irsimple/irsimple.jar)
